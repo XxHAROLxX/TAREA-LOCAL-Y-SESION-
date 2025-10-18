@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lista de Tareas</title>
+  <style>
+    /* Estilos básicos */
+    body { font-family: Arial, Helvetica, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 8px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee; }
+    li.completed { text-decoration: line-through; color: #777; }
+    button { cursor: pointer; }
+    .spacer { flex: 1; }
+    .small { font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Lista de Tareas</h1>
+  <div>
+    <input type="text" id="tareaInput" placeholder="Nueva tarea" aria-label="Nueva tarea">
+    <button id="agregarBtn">Agregar</button>
+    <select id="filtro" aria-label="Filtro">
+      <option value="todas">Todas</option>
+      <option value="completadas">Completadas</option>
+      <option value="pendientes">Pendientes</option>
+    </select>
+  </div>
+  <ul id="listaTareas"></ul>
+
+  <script>
+    // Claves para storage
+    const LS_KEY = 'mis_tareas_v1';
+    const SS_KEY = 'tareas_filtro_v1';
+
+n
+    // Inicializar tareas desde LocalStorage o array vacío
+    let tareas = [];
+
+    function cargarTareasDesdeLocalStorage() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        // validar estructura mínima
+        return parsed.map(t => ({ texto: String(t.texto || ''), completada: Boolean(t.completada) }));
+      } catch (e) {
+        console.error('Error leyendo LocalStorage:', e);
+        return [];
+      }
+    }
+
+    function guardarTareasEnLocalStorage() {
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(tareas));
+      } catch (e) {
+        console.error('Error guardando en LocalStorage:', e);
+      }
+    }
+
+    function guardarFiltroEnSessionStorage(filtro) {
+      try {
+        sessionStorage.setItem(SS_KEY, filtro);
+      } catch (e) {
+        console.error('Error guardando filtro en SessionStorage:', e);
+      }
+    }
+
+    function obtenerFiltro() {
+      return sessionStorage.getItem(SS_KEY) || 'todas';
+    }
+
+    // Cargar tareas iniciales
+    tareas = cargarTareasDesdeLocalStorage();
+
+    // Elementos del DOM
+    const tareaInput = document.getElementById('tareaInput');
+    const agregarBtn = document.getElementById('agregarBtn');
+    const filtroSelect = document.getElementById('filtro');
+    const listaTareas = document.getElementById('listaTareas');
+
+    // Restaurar filtro desde SessionStorage (si existe)
+    filtroSelect.value = obtenerFiltro();
+
+    // Agregar tarea
+    function agregarTarea() {
+      const texto = tareaInput.value.trim();
+      if (!texto) return;
+      tareas.push({ texto, completada: false });
+      guardarTareasEnLocalStorage();
+      tareaInput.value = '';
+      mostrarTareas();
+      tareaInput.focus();
+    }
+
+    // Cambiar estado (toggle)
+    function toggleCompletada(index) {
+      if (index < 0 || index >= tareas.length) return;
+      tareas[index].completada = !tareas[index].completada;
+      guardarTareasEnLocalStorage();
+      mostrarTareas();
+    }
+
+    // Eliminar tarea
+    function eliminarTarea(index) {
+      if (index < 0 || index >= tareas.length) return;
+      tareas.splice(index, 1);
+      guardarTareasEnLocalStorage();
+      mostrarTareas();
+    }
+
+    // Filtrar y mostrar tareas
+    function mostrarTareas() {
+      const filtro = obtenerFiltro();
+      // limpiar lista
+      listaTareas.innerHTML = '';
+      tareas.forEach((t, i) => {
+        if (filtro === 'completadas' && !t.completada) return;
+        if (filtro === 'pendientes' && t.completada) return;
+
+        const li = document.createElement('li');
+        li.className = t.completada ? 'completed' : '';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = t.completada;
+        checkbox.addEventListener('change', () => toggleCompletada(i));
+
+        const span = document.createElement('span');
+        span.textContent = t.texto;
+        span.className = 'spacer';
+
+        const btnDel = document.createElement('button');
+        btnDel.textContent = 'Eliminar';
+        btnDel.className = 'small';
+        btnDel.addEventListener('click', () => eliminarTarea(i));
+
+        li.appendChild(checkbox);
+        li.appendChild(span);
+        li.appendChild(btnDel);
+        listaTareas.appendChild(li);
+      });
+    }
+
+    // Manejar cambio de filtro
+    function filtrarTareas() {
+      const valor = filtroSelect.value;
+      guardarFiltroEnSessionStorage(valor);
+      mostrarTareas();
+    }
+
+    // Eventos
+    agregarBtn.addEventListener('click', agregarTarea);
+    tareaInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') agregarTarea(); });
+    filtroSelect.addEventListener('change', filtrarTareas);
+
+    // Mostrar al cargar
+    mostrarTareas();
+  </script>
+</body>
+</html>
